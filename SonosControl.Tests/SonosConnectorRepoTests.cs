@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Moq;
 using SonosControl.DAL.Interfaces;
 using SonosControl.DAL.Repos;
@@ -68,8 +69,8 @@ public class SonosConnectorRepoTests
     {
         public int StartPlayingCallCount { get; private set; }
 
-        public TestableSonosConnectorRepo(IHttpClientFactory httpClientFactory, ISettingsRepo settingsRepo)
-            : base(httpClientFactory, settingsRepo)
+        public TestableSonosConnectorRepo(IHttpClientFactory httpClientFactory, ISettingsRepo settingsRepo, ILogger<SonosConnectorRepo>? logger = null)
+            : base(httpClientFactory, settingsRepo, logger ?? Mock.Of<ILogger<SonosConnectorRepo>>())
         {
         }
 
@@ -87,7 +88,7 @@ public class SonosConnectorRepoTests
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK));
         var client = new HttpClient(handler);
         var settingsRepo = new Mock<ISettingsRepo>().Object;
-        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), settingsRepo);
+        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), settingsRepo, Mock.Of<ILogger<SonosConnectorRepo>>());
 
         await repo.NextTrack("1.2.3.4");
 
@@ -126,7 +127,7 @@ public class SonosConnectorRepoTests
         });
         var client = new HttpClient(handler);
         var settingsRepo = new Mock<ISettingsRepo>().Object;
-        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), settingsRepo);
+        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), settingsRepo, Mock.Of<ILogger<SonosConnectorRepo>>());
 
         var result = await repo.GetQueue("1.2.3.4");
 
@@ -170,7 +171,7 @@ public class SonosConnectorRepoTests
         });
         var client = new HttpClient(handler);
         var settingsRepo = new Mock<ISettingsRepo>().Object;
-        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), settingsRepo);
+        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), settingsRepo, Mock.Of<ILogger<SonosConnectorRepo>>());
 
         var result = await repo.GetQueue("1.2.3.4");
 
@@ -275,7 +276,7 @@ public class SonosConnectorRepoTests
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK));
         var client = new HttpClient(handler);
         var settingsRepo = new Mock<ISettingsRepo>().Object;
-        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), settingsRepo);
+        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), settingsRepo, Mock.Of<ILogger<SonosConnectorRepo>>());
 
         await repo.RebootDeviceAsync("1.2.3.4");
 
@@ -287,10 +288,8 @@ public class SonosConnectorRepoTests
     [Fact]
     public async Task GetAllSpeakersInGroup_ShouldUseCachedUuid_WhenAvailable()
     {
-        // Arrange
+        // Arrange: GetAllSpeakersInGroup only matches speakers that already have Uuid set in settings (no side-effect write).
         var handler = new QueueHttpMessageHandler();
-
-        // 1. Response for GetTransportInfo on 1.2.3.4
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(
@@ -303,47 +302,28 @@ public class SonosConnectorRepoTests
                   </s:Envelope>")
         });
 
-        // 2. Response for GetRinconIdAsync (GetSpeakerUUID) for the speaker missing UUID (Slave)
-        // We expect ONE call here because Master already has UUID in settings.
-        // Note: The regex in GetRinconIdAsync expects Hex characters [A-F0-9].
-        handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent("<root><UDN>uuid:RINCON_000002</UDN></root>")
-        });
-
         var client = new HttpClient(handler);
         var mockSettingsRepo = new Mock<ISettingsRepo>();
 
         var speakers = new List<SonosControl.DAL.Models.SonosSpeaker>
         {
             new() { IpAddress = "1.2.3.4", Name = "Master", Uuid = "uuid:RINCON_000001" },
-            new() { IpAddress = "5.6.7.8", Name = "Slave", Uuid = null } // Missing UUID, needs fetch
+            new() { IpAddress = "5.6.7.8", Name = "Slave", Uuid = "uuid:RINCON_000002" }
         };
 
         var settings = new SonosControl.DAL.Models.SonosSettings { Speakers = speakers };
         mockSettingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
-        mockSettingsRepo.Setup(r => r.WriteSettings(It.IsAny<SonosControl.DAL.Models.SonosSettings>())).Returns(Task.CompletedTask);
 
-        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), mockSettingsRepo.Object);
+        var repo = new SonosConnectorRepo(new TestHttpClientFactory(client), mockSettingsRepo.Object, Mock.Of<ILogger<SonosConnectorRepo>>());
 
         // Act
         var result = await repo.GetAllSpeakersInGroup("1.2.3.4");
 
-        // Assert
+        // Assert: both speakers have cached UUIDs matching the group response
         Assert.Contains("1.2.3.4", result);
         Assert.Contains("5.6.7.8", result);
         Assert.Equal(2, result.Count());
-
-        // Verify WriteSettings was called to save the fetched UUID
-        mockSettingsRepo.Verify(r => r.WriteSettings(It.Is<SonosControl.DAL.Models.SonosSettings>(s =>
-            s.Speakers.First(sp => sp.IpAddress == "5.6.7.8").Uuid == "uuid:RINCON_000002"
-        )), Times.Once);
-
-        // Check requests
-        // Request 1: GetTransportInfo
+        Assert.Single(handler.Requests);
         Assert.Equal("http://1.2.3.4:1400/MediaRenderer/AVTransport/Control", handler.Requests[0].Uri!.ToString());
-
-        // Request 2: Get Device Description (GetRinconIdAsync) for Slave
-        Assert.Equal("http://5.6.7.8:1400/xml/device_description.xml", handler.Requests[1].Uri!.ToString());
     }
 }

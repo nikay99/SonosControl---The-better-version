@@ -93,6 +93,7 @@ namespace SonosControl.DAL.Repos
             }
         }
 
+        /// <summary>Loads settings from disk/cache. Returns a new empty <see cref="SonosSettings"/> on missing file or deserialize error (callers cannot distinguish from a valid empty config).</summary>
         public async Task<SonosSettings?> GetSettings()
         {
             string jsonToUse;

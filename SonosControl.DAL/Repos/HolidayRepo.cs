@@ -1,7 +1,9 @@
 using System;
 using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
-﻿using SonosControl.DAL.Interfaces;
+using SonosControl.DAL.Interfaces;
 
 namespace SonosControl.DAL.Repos
 {
@@ -14,25 +16,21 @@ namespace SonosControl.DAL.Repos
             _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         }
 
-        public async Task<bool> IsHoliday()
+        public async Task<bool> IsHoliday(CancellationToken cancellationToken = default)
         {
-            // Request url
-            // https://openholidaysapi.org/PublicHolidays?countryIsoCode=AT&validFrom=2022-01-01&validTo=2022-12-31&subdivisionIsoCode=AT-8&languageIsoCode=DE
+            var date = DateTime.Now.ToString("yyyy-MM-dd");
+            var url = $"https://openholidaysapi.org/PublicHolidays?countryIsoCode=AT&validFrom={date}&validTo={date}&subdivisionIsoCode=AT-8&languageIsoCode=DE";
 
-            HttpClient client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("accept", "text/json");
-            HttpResponseMessage response = await client.GetAsync($"https://openholidaysapi.org/PublicHolidays?countryIsoCode=AT&validFrom={DateTime.Now.ToString("yyyy-MM-dd")}&validTo={DateTime.Now.ToString("yyyy-MM-dd")}&subdivisionIsoCode=AT-8&languageIsoCode=DE");
+            var client = _httpClientFactory.CreateClient("HolidayApi");
+            using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (responseBody.Length >= 3)
-            {
-                return true;
-            }
-            else
-            {
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Array)
                 return false;
-            }
+            return root.GetArrayLength() > 0;
         }
     }
 }

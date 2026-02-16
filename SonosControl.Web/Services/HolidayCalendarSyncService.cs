@@ -82,7 +82,7 @@ namespace SonosControl.Web.Services
             {
                 var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-                var settings = await unitOfWork.ISettingsRepo.GetSettings();
+                var settings = await unitOfWork.SettingsRepo.GetSettings();
                 if (settings == null)
                     return 0;
 
@@ -113,7 +113,7 @@ namespace SonosControl.Web.Services
 
                 if (updates > 0)
                 {
-                    await unitOfWork.ISettingsRepo.WriteSettings(settings);
+                    await unitOfWork.SettingsRepo.WriteSettings(settings);
                 }
 
                 return updates;

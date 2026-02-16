@@ -1,9 +1,9 @@
-﻿namespace SonosControl.DAL.Interfaces
+namespace SonosControl.DAL.Interfaces
 {
     public interface IUnitOfWork
     {
-        ISettingsRepo ISettingsRepo { get; }
-        ISonosConnectorRepo ISonosConnectorRepo { get; }
-        IHolidayRepo IHolidayRepo { get; }
+        ISettingsRepo SettingsRepo { get; }
+        ISonosConnectorRepo SonosConnectorRepo { get; }
+        IHolidayRepo HolidayRepo { get; }
     }
 }

@@ -1,4 +1,4 @@
-﻿@page "/admin/users"
+@page "/admin/users"
 @using Microsoft.AspNetCore.Identity
 @using SonosControl.Web.Models
 @inject UserManager<ApplicationUser> UserManager
@@ -342,7 +342,7 @@
             isLoading = false;
         }
 
-        _settings = await _uow.ISettingsRepo.GetSettings();
+        _settings = await _uow.SettingsRepo.GetSettings();
         allowUserRegistration = _settings?.AllowUserRegistration ?? true;
     }
 
@@ -352,7 +352,7 @@
         if (_settings is not null)
         {
             _settings.AllowUserRegistration = allowUserRegistration;
-            await _uow.ISettingsRepo.WriteSettings(_settings);
+            await _uow.SettingsRepo.WriteSettings(_settings);
             await AddLog(allowUserRegistration ? "Registration enabled" : "Registration disabled");
         }
     }
@@ -387,7 +387,7 @@
                 users.Remove(user);
                 userRoles.Remove(user.Id);
                 errorMessage = null;
-                AddLog("User deleted", $"user: {user.UserName}, {user.FirstName}, {user.LastName}, {user.Email}");
+                await AddLog("User deleted", $"user: {user.UserName}, {user.FirstName}, {user.LastName}, {user.Email}");
             }
             else
             {

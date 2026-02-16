@@ -62,9 +62,9 @@ public class IndexPageAccessibilityTests
         connectorRepo.Setup(r => r.SetVolume(It.IsAny<string>(), It.IsAny<int>())).Returns(Task.CompletedTask);
 
         var unitOfWork = new Mock<IUnitOfWork>();
-        unitOfWork.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
-        unitOfWork.SetupGet(u => u.ISonosConnectorRepo).Returns(connectorRepo.Object);
-        unitOfWork.SetupGet(u => u.IHolidayRepo).Returns(Mock.Of<IHolidayRepo>());
+        unitOfWork.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
+        unitOfWork.SetupGet(u => u.SonosConnectorRepo).Returns(connectorRepo.Object);
+        unitOfWork.SetupGet(u => u.HolidayRepo).Returns(Mock.Of<IHolidayRepo>());
 
         ctx.Services.AddSingleton<IUnitOfWork>(unitOfWork.Object);
         ctx.Services.AddSingleton<INotificationService>(Mock.Of<INotificationService>());
@@ -131,9 +131,9 @@ public class IndexPageAccessibilityTests
         connectorRepo.Setup(r => r.SetVolume(It.IsAny<string>(), It.IsAny<int>())).Returns(Task.CompletedTask);
 
         var unitOfWork = new Mock<IUnitOfWork>();
-        unitOfWork.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
-        unitOfWork.SetupGet(u => u.ISonosConnectorRepo).Returns(connectorRepo.Object);
-        unitOfWork.SetupGet(u => u.IHolidayRepo).Returns(Mock.Of<IHolidayRepo>());
+        unitOfWork.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
+        unitOfWork.SetupGet(u => u.SonosConnectorRepo).Returns(connectorRepo.Object);
+        unitOfWork.SetupGet(u => u.HolidayRepo).Returns(Mock.Of<IHolidayRepo>());
 
         ctx.Services.AddSingleton<IUnitOfWork>(unitOfWork.Object);
         ctx.Services.AddSingleton<INotificationService>(Mock.Of<INotificationService>());

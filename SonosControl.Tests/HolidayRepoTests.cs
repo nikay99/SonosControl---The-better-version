@@ -12,13 +12,11 @@ namespace SonosControl.Tests.Repos
     public class HolidayRepoTests
     {
         [Fact]
-        public async Task IsHoliday_ReturnsTrue_WhenApiReturnsThreeOrMoreChars()
+        public async Task IsHoliday_ReturnsTrue_WhenApiReturnsNonEmptyArray()
         {
-            // Arrange
             var mockFactory = new Mock<IHttpClientFactory>();
             var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
 
-            // Mock API response
             mockHttpMessageHandler.Protected()
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
@@ -28,7 +26,7 @@ namespace SonosControl.Tests.Repos
                 .ReturnsAsync(new HttpResponseMessage
                 {
                     StatusCode = System.Net.HttpStatusCode.OK,
-                    Content = new StringContent("YES") // Length >= 3
+                    Content = new StringContent("[{\"date\":\"2025-01-01\",\"name\":\"New Year\"}]")
                 });
 
             var client = new HttpClient(mockHttpMessageHandler.Object);
@@ -36,21 +34,17 @@ namespace SonosControl.Tests.Repos
 
             var repo = new HolidayRepo(mockFactory.Object);
 
-            // Act
             var result = await repo.IsHoliday();
 
-            // Assert
             Assert.True(result);
         }
 
         [Fact]
-        public async Task IsHoliday_ReturnsFalse_WhenApiReturnsLessThanThreeChars()
+        public async Task IsHoliday_ReturnsFalse_WhenApiReturnsEmptyArray()
         {
-            // Arrange
             var mockFactory = new Mock<IHttpClientFactory>();
             var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
 
-            // Mock API response
             mockHttpMessageHandler.Protected()
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
@@ -60,7 +54,7 @@ namespace SonosControl.Tests.Repos
                 .ReturnsAsync(new HttpResponseMessage
                 {
                     StatusCode = System.Net.HttpStatusCode.OK,
-                    Content = new StringContent("NO") // Length < 3
+                    Content = new StringContent("[]")
                 });
 
             var client = new HttpClient(mockHttpMessageHandler.Object);
@@ -68,10 +62,8 @@ namespace SonosControl.Tests.Repos
 
             var repo = new HolidayRepo(mockFactory.Object);
 
-            // Act
             var result = await repo.IsHoliday();
 
-            // Assert
             Assert.False(result);
         }
     }

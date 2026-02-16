@@ -1,9 +1,12 @@
-﻿using System.Net;
+using System.Net;
 
 namespace SonosControl.DAL.Models
 {
     public class SonosSettings
     {
+        /// <summary>Placeholder IP when no speaker is selected (used to skip init logic).</summary>
+        public const string DefaultPlaceholderIp = "10.0.0.0";
+
         public const string DefaultNowPlayingGradientStartColor = "#0f172a";
         public const string DefaultNowPlayingGradientMidColor = "#1e3a8a";
         public const string DefaultNowPlayingGradientEndColor = "#0f766e";
@@ -12,7 +15,7 @@ namespace SonosControl.DAL.Models
         public int MaxVolume { get; set; } = 100;
         public TimeOnly StartTime { get; set; } = new TimeOnly(6, 0);
         public TimeOnly StopTime { get; set; } = new TimeOnly(18, 0);
-        public string IP_Adress { get; set; } = "10.0.0.0";
+        public string IP_Adress { get; set; } = DefaultPlaceholderIp;
         public List<SonosSpeaker> Speakers { get; set; } = new();
         public List<TuneInStation> Stations { get; set; } = new()
         {

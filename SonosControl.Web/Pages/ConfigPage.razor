@@ -688,7 +688,9 @@ else
 
         {
 
-            _settings = await _uow.ISettingsRepo.GetSettings();
+            _settings = await _uow.SettingsRepo.GetSettings();
+            if (_settings == null)
+                _settings = new SonosSettings();
 
             _settings.YouTubeMusicCollections ??= new();
 
@@ -716,7 +718,7 @@ else
 
                 // Persist the updated default back to the config file
 
-                await _uow.ISettingsRepo.WriteSettings(_settings);
+                await _uow.SettingsRepo.WriteSettings(_settings);
 
             }
 
@@ -752,9 +754,9 @@ else
 
             _settings!.StartTime = value;
 
-            SaveSettings();
+            _ = SaveSettings();
 
-            AddLog("Starttime Changed", $"Time: {value}");
+            _ = AddLog("Starttime Changed", $"Time: {value}");
 
         }
 
@@ -774,9 +776,9 @@ else
 
             _settings!.StopTime = value;
 
-            SaveSettings();
+            _ = SaveSettings();
 
-            AddLog("Stoptime Changed", $"Time: {value}");
+            _ = AddLog("Stoptime Changed", $"Time: {value}");
 
         }
 
@@ -874,7 +876,7 @@ else
 
               }
 
-              SaveSettings();
+              _ = SaveSettings();
 
           }
 
@@ -922,7 +924,7 @@ else
 
 
 
-            SaveSettings();
+            _ = SaveSettings();
 
             _ = AddLog("Max Volume Changed", $"Value: {clamped}");
 
@@ -960,7 +962,7 @@ else
 
             _settings.NowPlayingGradientStartColor = normalized;
 
-            SaveSettings();
+            _ = SaveSettings();
 
         }
 
@@ -996,7 +998,7 @@ else
 
             _settings.NowPlayingGradientMidColor = normalized;
 
-            SaveSettings();
+            _ = SaveSettings();
 
         }
 
@@ -1032,7 +1034,7 @@ else
 
             _settings.NowPlayingGradientEndColor = normalized;
 
-            SaveSettings();
+            _ = SaveSettings();
 
         }
 
@@ -1082,7 +1084,7 @@ else
 
 
 
-        await _uow.ISettingsRepo.WriteSettings(_settings);
+        await _uow.SettingsRepo.WriteSettings(_settings);
 
     }
 

@@ -10,25 +10,36 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml;
 using System.Xml.Linq;
 using ByteDev.Sonos;
 using ByteDev.Sonos.Models;
+using Microsoft.Extensions.Logging;
 using SonosControl.DAL.Interfaces;
 using SonosControl.DAL.Models;
-
 
 namespace SonosControl.DAL.Repos
 {
     public class SonosConnectorRepo : ISonosConnectorRepo
     {
+        private const string GetPositionInfoSoapEnvelope = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<s:Envelope xmlns:s=""http://schemas.xmlsoap.org/soap/envelope/""
+            s:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+  <s:Body>
+    <u:GetPositionInfo xmlns:u=""urn:schemas-upnp-org:service:AVTransport:1"">
+      <InstanceID>0</InstanceID>
+    </u:GetPositionInfo>
+  </s:Body>
+</s:Envelope>";
+
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ISettingsRepo _settingsRepo;
+        private readonly ILogger<SonosConnectorRepo> _logger;
 
-        public SonosConnectorRepo(IHttpClientFactory httpClientFactory, ISettingsRepo settingsRepo)
+        public SonosConnectorRepo(IHttpClientFactory httpClientFactory, ISettingsRepo settingsRepo, ILogger<SonosConnectorRepo> logger)
         {
             _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
             _settingsRepo = settingsRepo ?? throw new ArgumentNullException(nameof(settingsRepo));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         private HttpClient CreateClient()
@@ -62,8 +73,9 @@ namespace SonosControl.DAL.Repos
             {
                 result = await controller.GetIsPlayingAsync();
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogDebug(ex, "IsPlaying check failed for {Ip}", ip);
             }
 
             return result;
@@ -73,17 +85,14 @@ namespace SonosControl.DAL.Repos
         {
             SonosController controller = new SonosControllerFactory().Create(ip);
             var volume = await controller.GetVolumeAsync();
-            return volume.Value;
+            return volume?.Value ?? 0;
         }
 
-        public async Task SetVolume(string ip, int volume)
-        {
-            SonosController controller = new SonosControllerFactory().Create(ip);
-            SonosVolume sonosVolume = new SonosVolume(volume);
-            await controller.SetVolumeAsync(sonosVolume);
-        }
+        public Task SetVolume(string ip, int volume) => SetSpeakerVolume(ip, volume, default);
+
         public async Task SetSpeakerVolume(string ip, int volume, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             SonosController controller = new SonosControllerFactory().Create(ip);
             SonosVolume sonosVolume = new SonosVolume(volume);
             await controller.SetVolumeAsync(sonosVolume);
@@ -128,12 +137,12 @@ namespace SonosControl.DAL.Repos
                 var client = CreateClient();
                 var response = await client.PostAsync(url, content, cancellationToken);
                 response.EnsureSuccessStatusCode();
-                Console.WriteLine("Station set successfully!");
+                _logger.LogDebug("Station set successfully for {Ip}", ip);
                 success = true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error setting station: {ex.Message}");
+                _logger.LogWarning(ex, "Error setting station for {Ip}", ip);
             }
 
             if (success)
@@ -143,57 +152,6 @@ namespace SonosControl.DAL.Repos
             }
         }
 
-
-        public async Task<string> GetCurrentTrackInfoAsync(string ip, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                var url = $"http://{ip}:1400/MediaRenderer/AVTransport/Control";
-
-                using var content = new StringContent(
-                    @"<?xml version=""1.0"" encoding=""utf-8""?>
-            <s:Envelope xmlns:s=""http://schemas.xmlsoap.org/soap/envelope/""
-                        s:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
-                <s:Body>
-                    <u:GetPositionInfo xmlns:u=""urn:schemas-upnp-org:service:AVTransport:1"">
-                        <InstanceID>0</InstanceID>
-                    </u:GetPositionInfo>
-                </s:Body>
-            </s:Envelope>", Encoding.UTF8, "text/xml");
-
-                content.Headers.ContentType = MediaTypeHeaderValue.Parse("text/xml; charset=utf-8");
-                content.Headers.Add("SOAPACTION", "\"urn:schemas-upnp-org:service:AVTransport:1#GetPositionInfo\"");
-
-                var client = CreateClient();
-                var response = await client.PostAsync(url, content, cancellationToken);
-                response.EnsureSuccessStatusCode();
-
-                var xml = await response.Content.ReadAsStringAsync(cancellationToken);
-
-                // Extract TrackMetaData block
-                var match = Regex.Match(xml, @"<TrackMetaData>(.*?)</TrackMetaData>", RegexOptions.Singleline);
-
-                if (match.Success)
-                {
-                    var metadataXml = System.Net.WebUtility.HtmlDecode(match.Groups[1].Value); // Unescape XML
-
-                    // Extract the title from TrackMetaData
-                    var titleMatch = Regex.Match(metadataXml, @"<dc:title>(.*?)</dc:title>");
-                    var creatorMatch = Regex.Match(metadataXml, @"<dc:creator>(.*?)</dc:creator>");
-
-                    var title = titleMatch.Success ? titleMatch.Groups[1].Value : "Unknown Title";
-                    var artist = creatorMatch.Success ? creatorMatch.Groups[1].Value : "Unknown Artist";
-
-                    return $"{title} — {artist}";
-                }
-
-                return "No metadata available";
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-        }
 
         public async Task<string> GetCurrentTrackAsync(string ip, CancellationToken cancellationToken = default)
         {
@@ -210,18 +168,7 @@ namespace SonosControl.DAL.Repos
             try
             {
                 var url = $"http://{ip}:1400/MediaRenderer/AVTransport/Control";
-
-                using var content = new StringContent(
-                    @"<?xml version=""1.0"" encoding=""utf-8""?>
-            <s:Envelope xmlns:s=""http://schemas.xmlsoap.org/soap/envelope/""
-                        s:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
-                <s:Body>
-                    <u:GetPositionInfo xmlns:u=""urn:schemas-upnp-org:service:AVTransport:1"">
-                        <InstanceID>0</InstanceID>
-                    </u:GetPositionInfo>
-                </s:Body>
-            </s:Envelope>", Encoding.UTF8, "text/xml");
-
+                using var content = new StringContent(GetPositionInfoSoapEnvelope, Encoding.UTF8, "text/xml");
                 content.Headers.ContentType = MediaTypeHeaderValue.Parse("text/xml; charset=utf-8");
                 content.Headers.Add("SOAPACTION", "\"urn:schemas-upnp-org:service:AVTransport:1#GetPositionInfo\"");
 
@@ -276,7 +223,7 @@ namespace SonosControl.DAL.Repos
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error getting track info: {ex.Message}");
+                _logger.LogDebug(ex, "GetTrackInfo failed for {Ip}", ip);
                 return null;
             }
         }
@@ -286,18 +233,7 @@ namespace SonosControl.DAL.Repos
             try
             {
                 var url = $"http://{ip}:1400/MediaRenderer/AVTransport/Control";
-
-                using var content = new StringContent(
-                    @"<?xml version=""1.0"" encoding=""utf-8""?>
-            <s:Envelope xmlns:s=""http://schemas.xmlsoap.org/soap/envelope/""
-                        s:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
-                <s:Body>
-                    <u:GetPositionInfo xmlns:u=""urn:schemas-upnp-org:service:AVTransport:1"">
-                        <InstanceID>0</InstanceID>
-                    </u:GetPositionInfo>
-                </s:Body>
-            </s:Envelope>", Encoding.UTF8, "text/xml");
-
+                using var content = new StringContent(GetPositionInfoSoapEnvelope, Encoding.UTF8, "text/xml");
                 content.Headers.ContentType = MediaTypeHeaderValue.Parse("text/xml; charset=utf-8");
                 content.Headers.Add("SOAPACTION", "\"urn:schemas-upnp-org:service:AVTransport:1#GetPositionInfo\"");
 
@@ -306,17 +242,18 @@ namespace SonosControl.DAL.Repos
                 response.EnsureSuccessStatusCode();
 
                 var xml = await response.Content.ReadAsStringAsync(cancellationToken);
+                var doc = XDocument.Parse(xml);
 
-                var doc = new XmlDocument();
-                doc.LoadXml(xml);
-
-                TimeSpan.TryParse(doc.GetElementsByTagName("RelTime").Item(0)?.InnerText ?? "00:00:00", out var relTime);
-                TimeSpan.TryParse(doc.GetElementsByTagName("TrackDuration").Item(0)?.InnerText ?? "00:00:00", out var trackDuration);
+                var relTimeEl = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "RelTime");
+                var trackDurationEl = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "TrackDuration");
+                TimeSpan.TryParse(relTimeEl?.Value ?? "00:00:00", out var relTime);
+                TimeSpan.TryParse(trackDurationEl?.Value ?? "00:00:00", out var trackDuration);
 
                 return (relTime, trackDuration);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogDebug(ex, "GetTrackProgress failed for {Ip}", ip);
                 return (TimeSpan.Zero, TimeSpan.Zero);
             }
         }
@@ -376,12 +313,11 @@ namespace SonosControl.DAL.Repos
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
             using JsonDocument doc = JsonDocument.Parse(json);
-            var trackUri = doc.RootElement
-                .GetProperty("tracks")
-                .GetProperty("items")[0]
-                .GetProperty("uri")
-                .GetString();
+            var items = doc.RootElement.GetProperty("tracks").GetProperty("items");
+            if (items.GetArrayLength() == 0)
+                return null;
 
+            var trackUri = items[0].GetProperty("uri").GetString();
             return trackUri;
         }
 
@@ -401,7 +337,7 @@ namespace SonosControl.DAL.Repos
             string? rinconId = await GetRinconIdAsync(ip, cancellationToken);
             if (rinconId == null)
             {
-                Console.WriteLine("Could not retrieve RINCON ID.");
+                _logger.LogWarning("Could not retrieve RINCON ID for {Ip}", ip);
                 return;
             }
 
@@ -458,7 +394,7 @@ namespace SonosControl.DAL.Repos
             }
             else
             {
-                Console.WriteLine("Invalid Spotify URL.");
+                _logger.LogWarning("Invalid Spotify URL");
                 return;
             }
 
@@ -484,11 +420,11 @@ namespace SonosControl.DAL.Repos
 
             if (!response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"Error setting Spotify playback: {response.ReasonPhrase}");
+                _logger.LogWarning("Error setting Spotify playback: {Reason}", response.ReasonPhrase);
                 return;
             }
 
-            Console.WriteLine("Spotify playback started.");
+            _logger.LogDebug("Spotify playback started for {Ip}", ip);
 
             cancellationToken.ThrowIfCancellationRequested();
             await StartPlaying(ip);
@@ -544,14 +480,14 @@ namespace SonosControl.DAL.Repos
 
             if (string.IsNullOrWhiteSpace(contentId))
             {
-                Console.WriteLine("Invalid YouTube Music URL.");
+                _logger.LogWarning("Invalid YouTube Music URL");
                 return;
             }
 
             var rinconId = await GetRinconIdAsync(ip, cancellationToken);
             if (rinconId == null)
             {
-                Console.WriteLine("Could not retrieve RINCON ID.");
+                _logger.LogWarning("Could not retrieve RINCON ID for {Ip}", ip);
                 return;
             }
 
@@ -610,11 +546,11 @@ namespace SonosControl.DAL.Repos
 
             if (!response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"Error setting YouTube Music playback: {response.ReasonPhrase}");
+                _logger.LogWarning("Error setting YouTube Music playback: {Reason}", response.ReasonPhrase);
                 return;
             }
 
-            Console.WriteLine("YouTube Music playback started.");
+            _logger.LogDebug("YouTube Music playback started for {Ip}", ip);
 
             cancellationToken.ThrowIfCancellationRequested();
             await StartPlaying(ip);
@@ -641,7 +577,7 @@ namespace SonosControl.DAL.Repos
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error fetching RINCON ID: {ex.Message}");
+                _logger.LogDebug(ex, "Error fetching RINCON ID for {Ip}", ip);
             }
 
             return null;
@@ -672,11 +608,11 @@ namespace SonosControl.DAL.Repos
                 var client = CreateClient();
                 var response = await client.PostAsync(url, content, cancellationToken);
                 response.EnsureSuccessStatusCode();
-                Console.WriteLine("Queue cleared successfully.");
+                _logger.LogDebug("Queue cleared for {Ip}", ip);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error clearing queue: {ex.Message}");
+                _logger.LogWarning(ex, "Error clearing queue for {Ip}", ip);
             }
         }
 
@@ -728,12 +664,12 @@ namespace SonosControl.DAL.Repos
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error fetching queue: {ex.Message}");
+                _logger.LogWarning(ex, "Error fetching queue for speaker");
                 return new SonosQueuePage(Array.Empty<SonosQueueItem>(), startIndex, 0, startIndex);
             }
         }
 
-        private static SonosQueuePage ParseQueueResponse(string responseBody, int startIndex, int requestedCount)
+        private SonosQueuePage ParseQueueResponse(string responseBody, int startIndex, int requestedCount)
         {
             var items = new List<SonosQueueItem>();
             int numberReturned = 0;
@@ -788,7 +724,7 @@ namespace SonosControl.DAL.Repos
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error parsing queue response: {ex.Message}");
+                _logger.LogDebug(ex, "Error parsing queue response");
             }
 
             if (numberReturned == 0)
@@ -916,9 +852,8 @@ namespace SonosControl.DAL.Repos
 
                 return (title, artist, album);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"Error parsing queue resource metadata: {ex.Message}");
                 return null;
             }
         }
@@ -989,7 +924,7 @@ namespace SonosControl.DAL.Repos
             var masterRinconHex = await GetRinconIdAsync(masterIp, cancellationToken);
             if (masterRinconHex == null)
             {
-                Console.WriteLine($"Error: Could not get RINCON ID for master speaker {masterIp}.");
+                _logger.LogWarning("Could not get RINCON ID for master speaker {MasterIp}", masterIp);
                 return false;
             }
 
@@ -1003,7 +938,7 @@ namespace SonosControl.DAL.Repos
                 var slaveUuid = await GetSpeakerUUID(slaveIp, cancellationToken);
                 if (slaveUuid == null)
                 {
-                    Console.WriteLine($"Error: Could not get UUID for slave speaker {slaveIp}. Skipping.");
+                    _logger.LogWarning("Could not get UUID for slave speaker {SlaveIp}, skipping", slaveIp);
                     overallSuccess = false;
                     continue;
                 }
@@ -1028,7 +963,7 @@ namespace SonosControl.DAL.Repos
                   </s:Body>
                 </s:Envelope>";
 
-                Console.WriteLine($"Grouping {slaveIp} to {masterIp}. Metadata: {groupMetaData}");
+                _logger.LogDebug("Grouping {SlaveIp} to {MasterIp}", slaveIp, masterIp);
 
                 try
                 {
@@ -1041,19 +976,19 @@ namespace SonosControl.DAL.Repos
                     if (!response.IsSuccessStatusCode)
                     {
                         var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                        Console.WriteLine($"Error: Speaker {slaveIp} could not join group. Status: {response.StatusCode}. Response: {errorContent}");
+                        _logger.LogWarning("Speaker {SlaveIp} could not join group. Status: {StatusCode}", slaveIp, response.StatusCode);
                         overallSuccess = false;
                     }
                     else
                     {
-                        Console.WriteLine($"Speaker {slaveIp} joined group with master {masterIp}.");
+                        _logger.LogDebug("Speaker {SlaveIp} joined group with master {MasterIp}", slaveIp, masterIp);
                         // Ensure the slave starts playing the group stream
                         await StartPlaying(slaveIp);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error: Speaker {slaveIp} could not join group: {ex.Message}");
+                    _logger.LogWarning(ex, "Speaker {SlaveIp} could not join group", slaveIp);
                     overallSuccess = false;
                 }
             }
@@ -1083,11 +1018,11 @@ namespace SonosControl.DAL.Repos
 
                 var response = await client.PostAsync(url, content, cancellationToken);
                 response.EnsureSuccessStatusCode();
-                Console.WriteLine($"Speaker {ip} ungrouped.");
+                _logger.LogDebug("Speaker {Ip} ungrouped", ip);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: Speaker {ip} could not be ungrouped: {ex.Message}");
+                _logger.LogWarning(ex, "Speaker {Ip} could not be ungrouped", ip);
             }
         }
 
@@ -1120,43 +1055,7 @@ namespace SonosControl.DAL.Repos
                     var settings = await _settingsRepo.GetSettings();
                     if (settings?.Speakers != null)
                     {
-                        // Identify speakers needing UUID update
-                        var speakersToUpdate = settings.Speakers.Where(s => string.IsNullOrEmpty(s.Uuid)).ToList();
-
-                        if (speakersToUpdate.Any())
-                        {
-                            var updateTasks = speakersToUpdate.Select(async s =>
-                            {
-                                try
-                                {
-                                    var uuid = await GetSpeakerUUID(s.IpAddress, cancellationToken);
-                                    return (Speaker: s, Uuid: uuid);
-                                }
-                                catch
-                                {
-                                    return (Speaker: s, Uuid: (string?)null);
-                                }
-                            });
-
-                            var results = await Task.WhenAll(updateTasks);
-                            bool anyUpdated = false;
-
-                            foreach (var res in results)
-                            {
-                                if (!string.IsNullOrEmpty(res.Uuid))
-                                {
-                                    res.Speaker.Uuid = res.Uuid;
-                                    anyUpdated = true;
-                                }
-                            }
-
-                            if (anyUpdated)
-                            {
-                                await _settingsRepo.WriteSettings(settings);
-                            }
-                        }
-
-                        // Filter speakers using cached UUIDs
+                        // Match speakers by already-known UUIDs (caller is responsible for ensuring UUIDs are populated, e.g. IndexPage.EnsureSpeakerUuids)
                         var matchingSpeakers = settings.Speakers
                             .Where(s => !string.IsNullOrEmpty(s.Uuid) && speakerUuidsInGroup.Contains(s.Uuid))
                             .Select(s => s.IpAddress);
@@ -1172,7 +1071,7 @@ namespace SonosControl.DAL.Repos
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error getting speakers in group for {ip}: {ex.Message}");
+                _logger.LogDebug(ex, "Error getting speakers in group for {Ip}", ip);
             }
             return groupedSpeakerIps;
         }
@@ -1201,11 +1100,11 @@ namespace SonosControl.DAL.Repos
                 var client = CreateClient();
                 var response = await client.PostAsync(url, content, cancellationToken);
                 response.EnsureSuccessStatusCode();
-                Console.WriteLine($"{action} command sent successfully.");
+                _logger.LogDebug("{Action} command sent for {Ip}", action, ip);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error sending {action} command: {ex.Message}");
+                _logger.LogWarning(ex, "Error sending {Action} command for {Ip}", action, ip);
             }
         }
 
@@ -1224,7 +1123,7 @@ namespace SonosControl.DAL.Repos
             }
             else
             {
-                Console.WriteLine($"Error: {response.ReasonPhrase}");
+                _logger.LogDebug("SOAP request failed: {Reason}", response.ReasonPhrase);
                 return $"Error: {response.ReasonPhrase}";
             }
         }

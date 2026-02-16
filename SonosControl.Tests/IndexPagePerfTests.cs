@@ -43,8 +43,8 @@ namespace SonosControl.Tests
 
             _mockAuthProvider = new Mock<AuthenticationStateProvider>();
 
-            _mockUow.Setup(u => u.ISonosConnectorRepo).Returns(_mockSonosRepo.Object);
-            _mockUow.Setup(u => u.ISettingsRepo).Returns(_mockSettingsRepo.Object);
+            _mockUow.Setup(u => u.SonosConnectorRepo).Returns(_mockSonosRepo.Object);
+            _mockUow.Setup(u => u.SettingsRepo).Returns(_mockSettingsRepo.Object);
 
             Services.AddSingleton(_mockUow.Object);
             Services.AddSingleton(_db);

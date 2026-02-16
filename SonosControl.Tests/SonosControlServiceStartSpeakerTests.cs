@@ -37,10 +37,10 @@ public class SonosControlServiceStartSpeakerTests
     {
         var sonosRepo = new Mock<ISonosConnectorRepo>(MockBehavior.Strict);
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISonosConnectorRepo).Returns(sonosRepo.Object);
+        uow.SetupGet(u => u.SonosConnectorRepo).Returns(sonosRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var service = new SonosControlService(scopeFactory);
+        var service = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>());
 
         var today = DateTime.Now.DayOfWeek;
         var inactiveDay = (DayOfWeek)(((int)today + 1) % 7);
@@ -65,10 +65,10 @@ public class SonosControlServiceStartSpeakerTests
     {
         var sonosRepo = new Mock<ISonosConnectorRepo>();
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISonosConnectorRepo).Returns(sonosRepo.Object);
+        uow.SetupGet(u => u.SonosConnectorRepo).Returns(sonosRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var service = new SonosControlService(scopeFactory);
+        var service = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>());
 
         var settings = new SonosSettings
         {
@@ -100,10 +100,10 @@ public class SonosControlServiceStartSpeakerTests
                  .ReturnsAsync(true);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISonosConnectorRepo).Returns(sonosRepo.Object);
+        uow.SetupGet(u => u.SonosConnectorRepo).Returns(sonosRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var service = new SonosControlService(scopeFactory);
+        var service = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>());
 
         var speaker1 = new SonosSpeaker { IpAddress = "192.168.1.101" };
         var speaker2 = new SonosSpeaker { IpAddress = "192.168.1.102" };
@@ -143,10 +143,10 @@ public class SonosControlServiceStartSpeakerTests
     {
         var sonosRepo = new Mock<ISonosConnectorRepo>();
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISonosConnectorRepo).Returns(sonosRepo.Object);
+        uow.SetupGet(u => u.SonosConnectorRepo).Returns(sonosRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var service = new SonosControlService(scopeFactory);
+        var service = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>());
 
         var speaker1 = new SonosSpeaker { IpAddress = "192.168.1.101" };
         var speaker2 = new SonosSpeaker { IpAddress = "192.168.1.102" };

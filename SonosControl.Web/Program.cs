@@ -30,8 +30,15 @@ builder.Services.AddHttpClient("RadioBrowser", client =>
     client.BaseAddress = new Uri("https://de1.api.radio-browser.info/");
     client.Timeout = TimeSpan.FromSeconds(8);
 });
-builder.Services.AddSingleton<ISettingsRepo, SettingsRepo>(); // Register ISettingsRepo
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>(); // Changed to Scoped
+builder.Services.AddHttpClient("HolidayApi", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+    client.DefaultRequestHeaders.Add("accept", "text/json");
+});
+builder.Services.AddSingleton<ISettingsRepo, SettingsRepo>();
+builder.Services.AddScoped<IHolidayRepo, HolidayRepo>();
+builder.Services.AddScoped<ISonosConnectorRepo, SonosConnectorRepo>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddSingleton<IMetricsCollector, MetricsCollector>();
 
 builder.Services.AddHostedService<SonosControlService>();

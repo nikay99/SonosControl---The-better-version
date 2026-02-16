@@ -38,7 +38,7 @@ public class SonosControlStopTests
 
         var sonosRepo = new Mock<ISonosConnectorRepo>();
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISonosConnectorRepo).Returns(sonosRepo.Object);
+        uow.SetupGet(u => u.SonosConnectorRepo).Returns(sonosRepo.Object);
 
         var speakers = new List<SonosSpeaker>
         {
@@ -50,7 +50,7 @@ public class SonosControlStopTests
         var stopDateTime = initial.AddHours(1);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory, timeProvider, (d, t) => Task.CompletedTask);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, (d, t) => Task.CompletedTask);
         var method = typeof(SonosControlService).GetMethod("StopSpeaker", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         // Act
@@ -70,7 +70,7 @@ public class SonosControlStopTests
 
         var sonosRepo = new Mock<ISonosConnectorRepo>();
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISonosConnectorRepo).Returns(sonosRepo.Object);
+        uow.SetupGet(u => u.SonosConnectorRepo).Returns(sonosRepo.Object);
 
         var speakers = new List<SonosSpeaker>
         {
@@ -83,7 +83,7 @@ public class SonosControlStopTests
         var scopeFactory = CreateMockScopeFactory(uow.Object);
 
         TimeSpan capturedDelay = TimeSpan.Zero;
-        var svc = new SonosControlService(scopeFactory, timeProvider, (d, t) => { capturedDelay = d; return Task.CompletedTask; });
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, (d, t) => { capturedDelay = d; return Task.CompletedTask; });
         var method = typeof(SonosControlService).GetMethod("StopSpeaker", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         // Act

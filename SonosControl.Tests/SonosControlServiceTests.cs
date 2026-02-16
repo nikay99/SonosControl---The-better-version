@@ -153,10 +153,10 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory, timeProvider, timeProvider.DelayAsync);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, timeProvider.DelayAsync);
         var expectedStart = new DateTimeOffset(initial.Date.Add(start.ToTimeSpan()), initial.Offset);
         var result = await InvokeWaitDeterministic(
             svc,
@@ -192,10 +192,10 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>());
 
         var sw = Stopwatch.StartNew();
         var result = await InvokeWait(svc, uow.Object, CancellationToken.None);
@@ -222,10 +222,10 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory, timeProvider, timeProvider.DelayAsync);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, timeProvider.DelayAsync);
         var now = timeProvider.LocalNow;
         var nextRun = new DateTimeOffset(now.Date.AddDays(1).Add(startTime.ToTimeSpan()), now.Offset);
         var maxVirtualAdvance = (nextRun - now) + TimeSpan.FromMinutes(1);
@@ -279,10 +279,10 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory, timeProvider, timeProvider.DelayAsync);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, timeProvider.DelayAsync);
 
         var now = timeProvider.LocalNow;
         var nextRun = new DateTimeOffset(now.Date.AddDays(1).Add(tomorrowSchedule.StartTime.ToTimeSpan()), now.Offset);
@@ -325,10 +325,10 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory, timeProvider, timeProvider.DelayAsync);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, timeProvider.DelayAsync);
 
         var expectedStart = new DateTimeOffset(initial.Date.AddDays(1).AddHours(0).AddMinutes(1), initial.Offset);
         var maxVirtualAdvance = TimeSpan.FromMinutes(8);
@@ -368,10 +368,10 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory, timeProvider, timeProvider.DelayAsync);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, timeProvider.DelayAsync);
         var expectedStart = new DateTimeOffset(initial.Date.Add(holidaySchedule.StartTime.ToTimeSpan()), initial.Offset);
         var result = await InvokeWaitDeterministic(
             svc,
@@ -410,10 +410,10 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory, timeProvider, timeProvider.DelayAsync);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, timeProvider.DelayAsync);
         var expectedStart = new DateTimeOffset(initial.Date.AddDays(1).Add(holidaySchedule.StartTime.ToTimeSpan()), initial.Offset);
         var result = await InvokeWaitDeterministic(
             svc,
@@ -465,10 +465,10 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory, timeProvider, timeProvider.DelayAsync);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, timeProvider.DelayAsync);
         var expectedStart = new DateTimeOffset(initial.Date.AddDays(1).Add(tomorrowSchedule.StartTime.ToTimeSpan()), initial.Offset);
         var result = await InvokeWaitDeterministic(
             svc,
@@ -490,11 +490,11 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(new SonosSettings());
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
-        uow.SetupGet(u => u.ISonosConnectorRepo).Returns(sonosRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SonosConnectorRepo).Returns(sonosRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>());
         var method = typeof(SonosControlService).GetMethod("StartSpeaker", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         var schedule = new HolidaySchedule
@@ -538,10 +538,10 @@ public class SonosControlServiceTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        uow.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var scopeFactory = CreateMockScopeFactory(uow.Object);
-        var svc = new SonosControlService(scopeFactory, timeProvider, timeProvider.DelayAsync);
+        var svc = new SonosControlService(scopeFactory, Mock.Of<Microsoft.Extensions.Logging.ILogger<SonosControlService>>(), timeProvider, timeProvider.DelayAsync);
         var expectedStart = new DateTimeOffset(initial.Date.AddDays(1).AddHours(9), initial.Offset);
         var result = await InvokeWaitDeterministic(
             svc,

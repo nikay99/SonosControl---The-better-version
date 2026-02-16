@@ -1,7 +1,10 @@
-﻿namespace SonosControl.DAL.Interfaces
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace SonosControl.DAL.Interfaces
 {
     public interface IHolidayRepo
     {
-        Task<bool> IsHoliday();
+        Task<bool> IsHoliday(CancellationToken cancellationToken = default);
     }
 }

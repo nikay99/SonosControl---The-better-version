@@ -17,6 +17,7 @@
 @inject ILogger<IndexPage> Logger
 @inject IMetricsCollector MetricsCollector
 @attribute [Authorize(Roles = "admin,operator,superadmin")]
+@implements IAsyncDisposable
 
 <PageTitle>Sonos Control</PageTitle>
 
@@ -485,7 +486,7 @@
 
         try
         {
-            _settings.Volume = await _uow.ISonosConnectorRepo.GetVolume(newIpAddress);
+            _settings.Volume = await _uow.SonosConnectorRepo.GetVolume(newIpAddress);
         }
         catch
         {
@@ -532,7 +533,7 @@
             }
 
             _settings.Volume = clamped;
-            _ = _uow.ISonosConnectorRepo.SetVolume(_settings.IP_Adress, clamped);
+            _ = _uow.SonosConnectorRepo.SetVolume(_settings.IP_Adress, clamped);
             _ = SaveSettings();
         }
     }
@@ -737,8 +738,8 @@
     {
         try
         {
-            var isPlayingTask = _uow.ISonosConnectorRepo.IsPlaying(speaker.IpAddress);
-            var rawStationUrlTask = _uow.ISonosConnectorRepo.GetCurrentStationAsync(speaker.IpAddress, cancellationToken);
+            var isPlayingTask = _uow.SonosConnectorRepo.IsPlaying(speaker.IpAddress);
+            var rawStationUrlTask = _uow.SonosConnectorRepo.GetCurrentStationAsync(speaker.IpAddress, cancellationToken);
             await Task.WhenAll(isPlayingTask, rawStationUrlTask);
 
             var isPlaying = await isPlayingTask;
@@ -824,7 +825,7 @@
     }
 
     private static string NormalizeStationUrl(string? rawStationUrl)
-        => rawStationUrl?.Replace("x-rincon-mp3radio://", "", StringComparison.OrdinalIgnoreCase).Trim() ?? string.Empty;
+        => SonosControl.DAL.SonosUrlHelper.NormalizeStationUrl(rawStationUrl);
 
     private async Task LoadCurrentStation(CancellationToken cancellationToken)
     {
@@ -833,9 +834,9 @@
             return;
         }
 
-        var stationTask = _uow.ISonosConnectorRepo.GetCurrentStationAsync(_settings.IP_Adress, cancellationToken);
-        var trackInfoTask = _uow.ISonosConnectorRepo.GetTrackInfoAsync(_settings.IP_Adress, cancellationToken);
-        var progressTask = _uow.ISonosConnectorRepo.GetTrackProgressAsync(_settings.IP_Adress, cancellationToken);
+        var stationTask = _uow.SonosConnectorRepo.GetCurrentStationAsync(_settings.IP_Adress, cancellationToken);
+        var trackInfoTask = _uow.SonosConnectorRepo.GetTrackInfoAsync(_settings.IP_Adress, cancellationToken);
+        var progressTask = _uow.SonosConnectorRepo.GetTrackProgressAsync(_settings.IP_Adress, cancellationToken);
 
         await Task.WhenAll(stationTask, trackInfoTask, progressTask);
 
@@ -866,8 +867,8 @@
             return;
         }
 
-        var stationTask = _uow.ISonosConnectorRepo.GetCurrentStationAsync(_settings.IP_Adress, cancellationToken);
-        var progressTask = _uow.ISonosConnectorRepo.GetTrackProgressAsync(_settings.IP_Adress, cancellationToken);
+        var stationTask = _uow.SonosConnectorRepo.GetCurrentStationAsync(_settings.IP_Adress, cancellationToken);
+        var progressTask = _uow.SonosConnectorRepo.GetTrackProgressAsync(_settings.IP_Adress, cancellationToken);
 
         await Task.WhenAll(stationTask, progressTask);
 
@@ -1031,7 +1032,7 @@
 
             var token = _queueRefreshCts.Token;
             var startIndex = reset ? 0 : _queueStartIndex;
-            var queuePage = await _uow.ISonosConnectorRepo.GetQueue(SelectedSpeakerIp, startIndex, QueuePageSize, token);
+            var queuePage = await _uow.SonosConnectorRepo.GetQueue(SelectedSpeakerIp, startIndex, QueuePageSize, token);
 
             if (reset)
             {
@@ -1117,22 +1118,22 @@
             switch (type)
             {
                 case "station":
-                    await _uow.ISonosConnectorRepo.SetTuneInStationAsync(_settings.IP_Adress, url);
+                    await _uow.SonosConnectorRepo.SetTuneInStationAsync(_settings.IP_Adress, url);
                     await AddLog("Station Changed", $"URL: {url}");
                     await NotificationService.SendNotificationAsync($"Station changed to {url} on {SelectedSpeakerIp}", await GetCurrentUserAsync());
                     break;
                 case "spotify":
-                    await _uow.ISonosConnectorRepo.PlaySpotifyTrackAsync(_settings.IP_Adress, url);
+                    await _uow.SonosConnectorRepo.PlaySpotifyTrackAsync(_settings.IP_Adress, url);
                     await AddLog("Spotify Track Changed", $"URL: {url}");
                     await NotificationService.SendNotificationAsync($"Spotify track changed to {url} on {SelectedSpeakerIp}", await GetCurrentUserAsync());
                     break;
                 case "youtube":
-                    await _uow.ISonosConnectorRepo.PlayYouTubeMusicTrackAsync(_settings.IP_Adress, url, _settings.AutoPlayStationUrl);
+                    await _uow.SonosConnectorRepo.PlayYouTubeMusicTrackAsync(_settings.IP_Adress, url, _settings.AutoPlayStationUrl);
                     await AddLog("YouTube Music Changed", $"URL: {url}");
                     await NotificationService.SendNotificationAsync($"YouTube Music changed to {url} on {SelectedSpeakerIp}", await GetCurrentUserAsync());
                     break;
             }
-            await _uow.ISonosConnectorRepo.StartPlaying(_settings.IP_Adress);
+            await _uow.SonosConnectorRepo.StartPlaying(_settings.IP_Adress);
             ShowCommandStatus("Playback command sent.");
         }
         catch (Exception ex)
@@ -1176,7 +1177,7 @@
             await InvokeAsync(StateHasChanged);
             try
             {
-                await _uow.ISonosConnectorRepo.PlaySpotifyTrackAsync(_settings.IP_Adress, url);
+                await _uow.SonosConnectorRepo.PlaySpotifyTrackAsync(_settings.IP_Adress, url);
                 await AddLog("Spotify URL Played", url);
                 ShowCommandStatus("Spotify URL sent to Sonos.");
             }
@@ -1199,7 +1200,7 @@
         await InvokeAsync(StateHasChanged);
         try
         {
-            await _uow.ISonosConnectorRepo.NextTrack(SelectedSpeakerIp);
+            await _uow.SonosConnectorRepo.NextTrack(SelectedSpeakerIp);
             await AddLog("Next Track");
             ShowCommandStatus("Skipped to next track.");
         }
@@ -1274,7 +1275,7 @@
                 var station = _stations.FirstOrDefault(s => s.Url == selectionValue);
                 selectionName = station?.Name ?? selectionValue;
                 logSource = $"Station: {selectionName}";
-                await _uow.ISonosConnectorRepo.SetTuneInStationAsync(_settings.IP_Adress, selectionValue);
+                await _uow.SonosConnectorRepo.SetTuneInStationAsync(_settings.IP_Adress, selectionValue);
                 _isSpotifyPlaying = false;
             }
             else if (selectionType == "spotify")
@@ -1282,7 +1283,7 @@
                 var track = _tracks.FirstOrDefault(t => t.Url == selectionValue);
                 selectionName = track?.Name ?? selectionValue;
                 logSource = $"Spotify: {selectionName}";
-                await _uow.ISonosConnectorRepo.PlaySpotifyTrackAsync(_settings.IP_Adress, selectionValue);
+                await _uow.SonosConnectorRepo.PlaySpotifyTrackAsync(_settings.IP_Adress, selectionValue);
                 _isSpotifyPlaying = true;
             }
             else if (selectionType == "youtube")
@@ -1290,7 +1291,7 @@
                 var entry = _youTubeCollections.FirstOrDefault(t => t.Url == selectionValue);
                 selectionName = entry?.Name ?? selectionValue;
                 logSource = $"YouTube Music: {selectionName}";
-                await _uow.ISonosConnectorRepo.PlayYouTubeMusicTrackAsync(_settings.IP_Adress, selectionValue, _settings.AutoPlayStationUrl);
+                await _uow.SonosConnectorRepo.PlayYouTubeMusicTrackAsync(_settings.IP_Adress, selectionValue, _settings.AutoPlayStationUrl);
                 _isSpotifyPlaying = false;
             }
             else
@@ -1299,7 +1300,7 @@
                 return;
             }
 
-            await _uow.ISonosConnectorRepo.StartPlaying(_settings.IP_Adress);
+            await _uow.SonosConnectorRepo.StartPlaying(_settings.IP_Adress);
             _isPlaying = true;
 
             var minutes = timerMinutes;
@@ -1329,7 +1330,7 @@
                     await Task.Delay(TimeSpan.FromMinutes(minutes), cts.Token);
                     await InvokeAsync(async () =>
                     {
-                        await _uow.ISonosConnectorRepo.PausePlaying(ip);
+                        await _uow.SonosConnectorRepo.PausePlaying(ip);
                         _isPlaying = false;
                         _timerEndTimeUtc = null;
                         _timerSelectionName = null;
@@ -1449,7 +1450,7 @@
             return;
         }
 
-        _settings = await _uow.ISettingsRepo.GetSettings() ?? new SonosSettings();
+        _settings = await _uow.SettingsRepo.GetSettings() ?? new SonosSettings();
         _settings.YouTubeMusicCollections ??= new List<YouTubeMusicObject>();
 
         if (_settings.Speakers.Any())
@@ -1469,7 +1470,7 @@
         {
             try
             {
-                if (_settings.Speakers.Any() && !(_settings.IP_Adress is "10.0.0.0"))
+                if (_settings.Speakers.Any() && _settings.IP_Adress != SonosSettings.DefaultPlaceholderIp)
                 {
                     await Task.WhenAll(
                         EnsureVolumeAsync(),
@@ -1499,7 +1500,7 @@
         {
             if (string.IsNullOrEmpty(speaker.Uuid))
             {
-                var uuid = await _uow.ISonosConnectorRepo.GetSpeakerUUID(speaker.IpAddress);
+                var uuid = await _uow.SonosConnectorRepo.GetSpeakerUUID(speaker.IpAddress);
                 if (!string.IsNullOrEmpty(uuid))
                 {
                     speaker.Uuid = uuid;
@@ -1518,7 +1519,7 @@
     {
         try
         {
-            _settings!.Volume = await _uow.ISonosConnectorRepo.GetVolume(SelectedSpeakerIp);
+            _settings!.Volume = await _uow.SonosConnectorRepo.GetVolume(SelectedSpeakerIp);
         }
         catch
         {
@@ -1529,7 +1530,7 @@
         if (_settings!.Volume > maxVolumeLimit)
         {
             _settings.Volume = maxVolumeLimit;
-            await _uow.ISonosConnectorRepo.SetVolume(SelectedSpeakerIp, maxVolumeLimit);
+            await _uow.SonosConnectorRepo.SetVolume(SelectedSpeakerIp, maxVolumeLimit);
         }
 
         await SaveSettings();
@@ -1544,7 +1545,7 @@
         {
             if (play)
             {
-                await _uow.ISonosConnectorRepo.StartPlaying(SelectedSpeakerIp);
+                await _uow.SonosConnectorRepo.StartPlaying(SelectedSpeakerIp);
                 _isPlaying = true;
                 await AddLog("Playback Started");
                 await NotificationService.SendNotificationAsync($"Playback started on {SelectedSpeakerIp}", await GetCurrentUserAsync());
@@ -1552,7 +1553,7 @@
             }
             else
             {
-                await _uow.ISonosConnectorRepo.PausePlaying(SelectedSpeakerIp);
+                await _uow.SonosConnectorRepo.PausePlaying(SelectedSpeakerIp);
                 _isPlaying = false;
                 await AddLog("Playback Paused");
                 await NotificationService.SendNotificationAsync($"Playback paused on {SelectedSpeakerIp}", await GetCurrentUserAsync());
@@ -1602,16 +1603,16 @@
 
     private async Task ApplyLegacySync(string masterIp, IEnumerable<string> slaveIps)
     {
-        var currentUri = await _uow.ISonosConnectorRepo.GetCurrentStationAsync(masterIp);
+        var currentUri = await _uow.SonosConnectorRepo.GetCurrentStationAsync(masterIp);
 
         var tasks = slaveIps.Select(async slaveIp =>
         {
              if (currentUri.StartsWith("x-rincon-mp3radio://") || currentUri.StartsWith("http"))
             {
-                await _uow.ISonosConnectorRepo.SetTuneInStationAsync(slaveIp, currentUri);
+                await _uow.SonosConnectorRepo.SetTuneInStationAsync(slaveIp, currentUri);
             }
 
-            await _uow.ISonosConnectorRepo.StartPlaying(slaveIp);
+            await _uow.SonosConnectorRepo.StartPlaying(slaveIp);
         });
 
         await Task.WhenAll(tasks);
@@ -1630,10 +1631,10 @@
         try
         {
             // Stop slave speakers first to ensure clean grouping
-            await Task.WhenAll(slaveIps.Select(ip => _uow.ISonosConnectorRepo.StopPlaying(ip)));
+            await Task.WhenAll(slaveIps.Select(ip => _uow.SonosConnectorRepo.StopPlaying(ip)));
 
             // Try to create the group via UPnP
-            bool success = await _uow.ISonosConnectorRepo.CreateGroup(SelectedSpeakerIp, slaveIps);
+            bool success = await _uow.SonosConnectorRepo.CreateGroup(SelectedSpeakerIp, slaveIps);
 
             if (success)
             {
@@ -1672,7 +1673,7 @@
         await InvokeAsync(StateHasChanged);
         try
         {
-            await _uow.ISonosConnectorRepo.UngroupSpeaker(SelectedSpeakerIp);
+            await _uow.SonosConnectorRepo.UngroupSpeaker(SelectedSpeakerIp);
             await AddLog("Speaker Ungrouped", SelectedSpeakerIp);
             await NotificationService.SendNotificationAsync($"Speaker {SelectedSpeakerIp} ungrouped", await GetCurrentUserAsync());
             ShowCommandStatus("Speaker ungrouped.");
@@ -1697,7 +1698,7 @@
 
     private async Task SaveSettings()
     {
-        await _uow.ISettingsRepo.WriteSettings(_settings!);
+        await _uow.SettingsRepo.WriteSettings(_settings!);
     }
 
     private void ShowAddStationModal() => _addMediaItemModal.Show("Add New Station");
@@ -1789,8 +1790,6 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private Random _random = new();
-
     private bool _isShuffleLoading;
 
     private async Task ShuffleStation()
@@ -1801,7 +1800,7 @@
             await InvokeAsync(StateHasChanged);
             try
             {
-                var randomStation = _settings.Stations[_random.Next(_settings.Stations.Count)].Url;
+                var randomStation = _settings.Stations[Random.Shared.Next(_settings.Stations.Count)].Url;
                 await PlayMediaItem(randomStation, "station");
             }
             finally

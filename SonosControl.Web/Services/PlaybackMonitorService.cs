@@ -71,7 +71,7 @@ namespace SonosControl.Web.Services
 
             try
             {
-                var settings = await uow.ISettingsRepo.GetSettings();
+                var settings = await uow.SettingsRepo.GetSettings();
                 if (settings?.Speakers == null || !settings.Speakers.Any())
                 {
                     return;
@@ -107,7 +107,7 @@ namespace SonosControl.Web.Services
             CancellationToken token)
         {
             var ip = speaker.IpAddress;
-            var isPlaying = await uow.ISonosConnectorRepo.IsPlaying(ip);
+            var isPlaying = await uow.SonosConnectorRepo.IsPlaying(ip);
 
             if (!isPlaying)
             {
@@ -115,8 +115,8 @@ namespace SonosControl.Web.Services
             }
 
             // Fetch info
-            var trackInfoTask = uow.ISonosConnectorRepo.GetTrackInfoAsync(ip, token);
-            var stationUrlTask = uow.ISonosConnectorRepo.GetCurrentStationAsync(ip, token);
+            var trackInfoTask = uow.SonosConnectorRepo.GetTrackInfoAsync(ip, token);
+            var stationUrlTask = uow.SonosConnectorRepo.GetCurrentStationAsync(ip, token);
 
             await Task.WhenAll(trackInfoTask, stationUrlTask);
 
@@ -315,7 +315,7 @@ namespace SonosControl.Web.Services
         }
 
         private static string NormalizeStationUrl(string stationUrl)
-            => stationUrl.Replace("x-rincon-mp3radio://", "", StringComparison.OrdinalIgnoreCase).Trim();
+            => SonosControl.DAL.SonosUrlHelper.NormalizeStationUrl(stationUrl);
 
         private static string? MatchKnownStation(string normalizedStationUrl, IReadOnlyDictionary<string, string> knownStations)
         {

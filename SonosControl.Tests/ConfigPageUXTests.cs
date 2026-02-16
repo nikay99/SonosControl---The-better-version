@@ -49,10 +49,10 @@ public class ConfigPageUXTests
 
         // UoW Mock
         var unitOfWork = new Mock<IUnitOfWork>();
-        unitOfWork.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        unitOfWork.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
         // We don't need connector repo for this specific test part, but good to have if init runs
-        unitOfWork.SetupGet(u => u.ISonosConnectorRepo).Returns(Mock.Of<ISonosConnectorRepo>());
-        unitOfWork.SetupGet(u => u.IHolidayRepo).Returns(Mock.Of<IHolidayRepo>());
+        unitOfWork.SetupGet(u => u.SonosConnectorRepo).Returns(Mock.Of<ISonosConnectorRepo>());
+        unitOfWork.SetupGet(u => u.HolidayRepo).Returns(Mock.Of<IHolidayRepo>());
 
         ctx.Services.AddSingleton<IUnitOfWork>(unitOfWork.Object);
 

@@ -62,7 +62,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var settings = await _uow.ISettingsRepo.GetSettings();
+        var settings = await _uow.SettingsRepo.GetSettings();
         allowRegistration = settings?.AllowUserRegistration ?? true;
     }
 

@@ -68,7 +68,7 @@ public class StationLookupUXTests
         settingsRepo.Setup(r => r.GetSettings()).ReturnsAsync(settings);
 
         var unitOfWork = new Mock<IUnitOfWork>();
-        unitOfWork.SetupGet(u => u.ISettingsRepo).Returns(settingsRepo.Object);
+        unitOfWork.SetupGet(u => u.SettingsRepo).Returns(settingsRepo.Object);
 
         var httpClientFactory = new Mock<IHttpClientFactory>();
         httpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(new HttpClient());

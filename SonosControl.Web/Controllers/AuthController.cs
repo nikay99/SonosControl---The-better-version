@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using SonosControl.Web.Models;
 using SonosControl.DAL.Interfaces;
@@ -53,7 +53,7 @@ namespace SonosControl.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register()
         {
-            var settings = await _uow.ISettingsRepo.GetSettings();
+            var settings = await _uow.SettingsRepo.GetSettings();
             if (settings?.AllowUserRegistration == false)
             {
                 return Forbid();
